@@ -1,0 +1,12 @@
+# The pinned METALOGOS core for this showcase (naryad №679, Wave 42).
+# Pin policy (ADR-0190 §3(а), sync answer): core versions are FIXED here;
+# drift past the pin is tracked by the weekly scheduled drift-check
+# (.github/workflows/drift-check.yml, non-blocking). Bumping the pin is a
+# small PR that carries the both-backend proof on the new pin (ADR-0190 §2.4).
+# CI downloads the pinned release asset and verifies its SHA256 before any
+# e2e leg runs; the release BUILD-INFO.txt names the same source commit.
+CORE_REPO=ShkodnikAI/Metalogos-
+CORE_TAG=v0.30.1
+CORE_SHA=27877b811187bd9c064545e97a35fcd8e12881c2
+CORE_ASSET=mlog-linux-x86_64
+CORE_ASSET_SHA256=22f64215348738776066bf3d1dd0b3795fa4f27607d7f99abddcf58c6e015bc3

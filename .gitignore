@@ -1,0 +1,6 @@
+# The local cache of the pinned core binary (fetched and verified by
+# e2e/lib.sh). Never committed — the pin lives in core-pin.txt.
+.cache/
+# Bytecode artifacts (the VM legs compile into scratch dirs, but keep the
+# tree clean regardless).
+*.mbc
