@@ -1,0 +1,6 @@
+# The mlogpkg manifest of App B — the showcase bot (naryad №681, Wave 42;
+# ADR-0190 §2.2). The project IS an mlogpkg package: `mlogpkg init`-shaped
+# manifest, the entry point at src/main.mlog, zero dependencies (offline).
+[package]
+name = "showcase-bot"
+version = "0.1.0"

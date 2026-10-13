@@ -1,0 +1,117 @@
+// Copyright 2024-2026 ShkodnikAI
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// App B — the bot application on mlogpkg (ADR-0190 §2.2; naryad №681,
+// Wave 42, Metalogos- gh#1232).
+//
+// A chat-bot skeleton in three moves:
+//   1. INTAKE — two deterministic intake modes over the same handler:
+//        - HOOK:  POST /hook  {chat, text}  — the webhook-style update,
+//                 processed immediately;
+//        - POLL:  POST /enqueue {chat, text} queues the update, and
+//                 POST /poll drains the queue one update per call —
+//                 the poll-loop iteration, driven manually (the external
+//                 world is REPLACED by the queue — the deterministic
+//                 stand-in; no network, no scheduler timing).
+//   2. DIALOG STATE MACHINE — the per-chat dialog state lives in the
+//      typed-memory registry (the process-global, backend-independent
+//      surface, №520): new → greeted → helped, per chat id.
+//   3. OUTBOUND — send_message(chat, reply). Without TELEGRAM_BOT_TOKEN
+//      the call is the deterministic [AUDIT] stub (stderr) — the bot's
+//      external API client call closed behind the stub, offline.
+//
+// The route responses carry the full (state → reply) transitions, so the
+// e2e transcript is fully deterministic (the [AUDIT] lines are asserted
+// by presence in the server log, not by whole-log diffing — the log also
+// carries the server's own startup noise).
+
+pattern handle(chat: String, text: String) -> String {
+  let h = memory_open("app-b-dialog", "public")
+  let st = try memory_read(h, "state:" + chat)
+  let mut state = "new"
+  if st.ok {
+    state = st.value
+  }
+  let mut reply = ""
+  let mut next = state
+  if state == "new" {
+    reply = "welcome to the showcase bot"
+    next = "greeted"
+  }
+  if state == "greeted" {
+    if text == "help" {
+      reply = "commands: start, help, anything-else echoes back"
+      next = "helped"
+    }
+    if text != "help" {
+      reply = "echo: " + text
+    }
+  }
+  if state == "helped" {
+    reply = "echo: " + text
+  }
+  memory_put(h, "state:" + chat, next)
+  send_message(chat, reply)
+  return "state=" + state + " -> " + reply
+}
+
+mlogserver {
+  port: 8792
+
+  // HOOK intake — the webhook-style update, processed immediately.
+  route "/hook" method=POST {
+    let body = json_body()
+    return handle(body.chat, body.text)
+  }
+
+  // The deterministic stand-in for the external world: an update arrives
+  // into the queue (the bot does not see it yet).
+  route "/enqueue" method=POST {
+    let body = json_body()
+    let h = memory_open("app-b-dialog", "public")
+    let tt = try memory_read(h, "qtail")
+    let mut tail = 0.0
+    if tt.ok {
+      tail = to_float_or(tt.value, 0.0)
+    }
+    memory_put(h, "qchat:" + to_string(tail), body.chat)
+    memory_put(h, "qtext:" + to_string(tail), body.text)
+    memory_put(h, "qtail", to_string(tail + 1.0))
+    return "queued:" + to_string(tail)
+  }
+
+  // POLL intake — one poll-loop iteration: drain the queue head, run the
+  // SAME handler, acknowledge. Empty queue answers "poll: queue empty".
+  route "/poll" method=POST {
+    let h = memory_open("app-b-dialog", "public")
+    let th = try memory_read(h, "qhead")
+    let tt = try memory_read(h, "qtail")
+    let mut head = 0.0
+    if th.ok {
+      head = to_float_or(th.value, 0.0)
+    }
+    let mut tail = 0.0
+    if tt.ok {
+      tail = to_float_or(tt.value, 0.0)
+    }
+    if head < tail {
+      let chat = memory_read(h, "qchat:" + to_string(head))
+      let text = memory_read(h, "qtext:" + to_string(head))
+      let rep = handle(chat, text)
+      memory_put(h, "qhead", to_string(head + 1.0))
+      return "poll: " + rep
+    }
+    return "poll: queue empty"
+  }
+}
