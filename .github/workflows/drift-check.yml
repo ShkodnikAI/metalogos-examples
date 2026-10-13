@@ -1,0 +1,31 @@
+# The NON-BLOCKING weekly drift-check of the metalogos-examples showcase
+# (naryad №679, Wave 42; ADR-0190 §3(а) sync answer: «pin + scheduled
+# drift-check»).
+#
+# Compares the pin (core-pin.txt) with the core repository's latest
+# published release and reports the drift in the job summary. Never fails,
+# never auto-bumps the pin — the pin bump is a small PR with the
+# both-backend proof (ADR-0190 §2.4).
+
+name: core-drift-check
+
+on:
+  schedule:
+    # Weekly, Mondays 06:00 UTC.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    name: report core drift (non-blocking)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out the showcase
+        uses: actions/checkout@v4
+
+      - name: Compare the pin with the core's latest release
+        run: bash e2e/drift_check.sh >> "$GITHUB_STEP_SUMMARY"

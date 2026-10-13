@@ -1,0 +1,40 @@
+# The BLOCKING CI of the metalogos-examples showcase (naryad №679, Wave 42).
+#
+# What it proves, in order:
+#   1. the pinned core binary (core-pin.txt) downloads and verifies —
+#      SHA256 + BUILD-INFO source commit;
+#   2. every registered app leg runs on BOTH backends (TW + VM) and the
+#      outputs are identical (ADR-0190 §2.4 — parity is the display
+#      requirement);
+#   3. with zero legs (the stub state) the harness reports the stubs loudly
+#      and passes — the green run proves the pin and the harness, nothing
+#      else.
+#
+# Offline-only discipline (ADR-0190 §2.2): the ONLY network touch is the
+# pinned-binary fetch (the fixture delivery). No app leg may depend on the
+# network; live providers stay manual, outside CI.
+#
+# The core CI cell does not grow (naryad №535): this second CI lives in the
+# showcase repository, sanctioned by ADR-0190 §3(а).
+
+name: showcase-e2e
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e-both-backend:
+    name: e2e both-backend (pinned core)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out the showcase
+        uses: actions/checkout@v4
+
+      - name: Run the blocking both-backend e2e on the pinned core
+        run: bash e2e/run_all.sh
