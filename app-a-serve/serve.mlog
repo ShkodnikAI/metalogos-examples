@@ -1,0 +1,62 @@
+// Copyright 2024-2026 ShkodnikAI
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// App A — the stateful serve application (ADR-0190 §2.1; naryad №680,
+// Wave 42, Metalogos- gh#1231).
+//
+// The state story: a note is persisted through POST /note, queried
+// through POST /note/read, and the state SURVIVES A SERVER RESTART —
+// the persistence anchors (METALOGOS_MEMORY_DB + METALOGOS_MEMORY_MASTER)
+// make a fresh process re-open and decrypt the typed-memory store
+// (the load-on-open posture, №351 / ADR-0173 §3.5).
+//
+// The honest subset (ADR-0190 §2.4): the state story rides the
+// typed-memory arc (memory_open / memory_put / memory_read / memory_keys
+// — the process-global, backend-independent registry, naryad №520).
+// The simple memory { persist } + memorize/recall lane is request-scoped
+// on the VM BY DESIGN (the №442 isolation pin), so it is deliberately
+// NOT part of the cross-request state story here.
+
+mlogserver {
+  port: 8791
+
+  // POST /note { "key": "...", "text": "..." } — persist one note.
+  route "/note" method=POST {
+    let body = json_body()
+    let h = memory_open("app-a-notes", "public")
+    memory_put(h, body.key, body.text)
+    return "persisted:" + body.key
+  }
+
+  // POST /note/read { "key": "..." } — query one note. A missing key is
+  // the typed MEMORY_UNKNOWN_KEY refusal — the loud error response, never
+  // a silent empty answer. No branching on the read value: a decision on
+  // untrusted data is a Category A violation (UNTRUSTED_DECISION), the
+  // persistence assertions live in the e2e leg, not in the program.
+  route "/note/read" method=POST {
+    let body = json_body()
+    let h = memory_open("app-a-notes", "public")
+    let v = memory_read(h, body.key)
+    return v
+  }
+
+  // POST /notes — list the keys. The key ORDER follows the container's
+  // hash map (not ordered), so the e2e oracle checks CONTAINS, never an
+  // exact ordering.
+  route "/notes" method=POST {
+    let h = memory_open("app-a-notes", "public")
+    let keys = memory_keys(h)
+    return join(keys, ",")
+  }
+}
