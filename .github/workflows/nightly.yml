@@ -1,0 +1,29 @@
+# The NIGHTLY workflow of the metalogos-examples showcase (naryad №680,
+# Wave 42; ADR-0190 §2.1: "the long restart/stress legs in the nightly").
+#
+# Runs the blocking legs PLUS the nightly_* legs (the harness contract of
+# e2e/run_all.sh: e2e/nightly_*.sh runs only when RUN_NIGHTLY=1). This
+# workflow is scheduled/report-only — it is not a PR gate; a red nightly
+# is a loud finding for the conveyor, never a silent one.
+
+name: showcase-nightly
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  nightly:
+    name: nightly stress legs (pinned core)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out the showcase
+        uses: actions/checkout@v4
+
+      - name: Run the blocking + nightly legs on the pinned core
+        run: RUN_NIGHTLY=1 bash e2e/run_all.sh
