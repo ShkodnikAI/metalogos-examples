@@ -8,7 +8,7 @@
 | `fetch_core.sh` | standalone fetch/verify of the pinned core binary (prints the path) |
 | `run_all.sh` | the BLOCKING harness: verify the pin, then run every leg |
 | `drift_check.sh` | the NON-BLOCKING weekly drift report (always exits 0) |
-| `app_*.sh` | per-app legs — land with their owner naryads (none yet) |
+| `app_*.sh` | per-app blocking legs: `app_a.sh` (№680), `app_b.sh` (№681), `app_c.sh` (№682) |
 | `nightly_*.sh` | nightly-only legs — run when `RUN_NIGHTLY=1` |
 
 ## The leg contract
@@ -24,9 +24,10 @@ Each `e2e/app_<name>.sh`:
 4. is **offline-only**: no network dependency ever enters the blocking path
    (ADR-0190 §2.2). Live-provider demos stay manual, outside CI.
 
-## Stub state (after №679)
+## The stub state (historical, after №679)
 
 With zero legs registered, `run_all.sh` exits 0 **loudly**: it names the
-three application stubs and their owner naryads (№680, №681, №682). The
-green run on the scaffold proves the pin + harness, and nothing else — by
-design. The first registered leg that fails turns the CI red.
+application stubs and their owner naryads (№680, №681, №682). The green
+run on the scaffold proved the pin + harness, and nothing else — by
+design. Since №680–№682 all three legs are registered, the stub branch is
+unreachable in practice, and any failing leg turns the CI red.
