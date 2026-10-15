@@ -27,8 +27,9 @@ METALOGOS?» — start here, run the apps, read their transcripts.
 | **B — bot on mlogpkg** | `app-b-bot/` | naryad №681 (gh#1232) | poll intake + a dialog state machine in mlog + one outbound call behind the deterministic stub (`send_message` without a bot token → the `[AUDIT]` stub) | the scripted dialog transcript, stable across runs and identical on both backends |
 | **C — small LLM agent** | `app-c-llm-agent/` | naryad №682 (gh#1233) | `call_llm` + one tool call + the visible action trace, under `METALOGOS_MOCK_LLM=1` (deterministic canned-model circuit) | the agent transcript (model calls, tool calls, actions), identical on both backends |
 
-Until an owner naryad lands, each application directory holds a **loudly
-empty** stub: a README that names the owner and refuses to pretend otherwise.
+All three application directories have landed with their owner naryads
+(№680, №681, №682); each app README carries the both-backend parity proof
+of its bounded subset.
 
 ## The honesty rule (ADR-0190 §2.4)
 
@@ -61,11 +62,11 @@ The showcase pins the core instead of floating with it:
 ## Layout
 
 ```
-app-a-serve/     # App A — stateful serve (owner: naryad №680) — STUB
-app-b-bot/       # App B — bot on mlogpkg (owner: naryad №681) — STUB
-app-c-llm-agent/ # App C — small LLM agent (owner: naryad №682) — STUB
+app-a-serve/     # App A — stateful serve (naryad №680) — LANDED
+app-b-bot/       # App B — bot on mlogpkg (naryad №681) — LANDED
+app-c-llm-agent/ # App C — small LLM agent (naryad №682) — LANDED
 e2e/             # the shared both-backend e2e harness (this naryad №679);
-                 # per-app legs land with their owner naryads
+                 # legs: app_a.sh, app_b.sh, app_c.sh
 core-pin.txt     # the pinned core: tag, commit, asset checksum
 LICENSE-APACHE   # Apache-2.0, verbatim from the pinned core tag
 LICENSE-MIT      # MIT, verbatim from the pinned core tag

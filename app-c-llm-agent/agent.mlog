@@ -1,0 +1,107 @@
+// Copyright 2024-2026 ShkodnikAI
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// App C — the small LLM agent (ADR-0190 §2.3; naryad №682, Wave 42,
+// Metalogos- gh#1233).
+//
+// A transparent agent loop, one visible cycle per task:
+//   1. GUARD — the deterministic mock contour is required
+//      (METALOGOS_MOCK_LLM=1|true). Without it the agent refuses LOUDLY
+//      before any model call — nothing is invented, the leg stays
+//      offline (ADR-0190 §2.2).
+//   2. MODEL CALL 1/2 — call_llm("solve", task); the deterministic mock
+//      answers "[MOCK: solve | <task>]" (the №454/№478 canned circuit).
+//   3. VALIDATION — escape_html: the model text is validated BEFORE any
+//      decision on it (the UNTRUSTED_DECISION rule — the agent never
+//      branches on raw model output).
+//   4. ACTION — the action verb is parsed from the validated answer and
+//      EXACTLY ONE tool call fires (math_api.double / math_api.square —
+//      the ADR-0054 qualified calls into the tool namespace).
+//   5. MODEL CALL 2/2 — the report call: the tool result goes back
+//      through the model, the trace shows it.
+// Every step is declared on the visible trace (stderr; every trace line
+// crosses the sink through the escape_html bridge — the №391 posture,
+// and the canned answers carry no HTML metacharacters, so the
+// transcript is byte-stable). The flow output is the final answer
+// (stdout).
+//
+// Bounded subset: call_llm + escape_html + require + env + one tool
+// declaration with two methods. No new builtins (§4 ADR-0190); no keys,
+// no secrets, no network.
+
+tool math_api {
+  double(n: Float) -> Float { return n + n }
+  square(n: Float) -> Float { return n * n }
+}
+
+pattern cycle(task: String, n: Float) -> String {
+  // 1. the guard — the honest boundary of the whole app: the agent runs
+  // only on the deterministic canned-model circuit. The mismatch is the
+  // loud refusal (rc != 0, empty stdout) — the expected-value string
+  // names the missing contour variable.
+  let mock = env("METALOGOS_MOCK_LLM")
+  if mock == "1" {
+    assert_eq(mock, "1")
+  } else {
+    if mock == "true" {
+      assert_eq(mock, "true")
+    } else {
+      assert_eq(mock, "METALOGOS_MOCK_LLM=1|true")
+    }
+  }
+
+  // 2. model call 1/2 — the task call.
+  print("[trace] [agent] model call 1/2: call_llm(solve, " + task + ")")
+  let raw = call_llm("solve", task)
+  print(escape_html("[trace] [agent] model answered: " + raw))
+
+  // 3. validation BEFORE the decision (UNTRUSTED_DECISION).
+  let safe = escape_html(raw)
+  print(escape_html("[trace] [agent] validated: " + safe))
+
+  // 4. the action verb + exactly one tool call.
+  let mut verb = "none"
+  match safe {
+    contains "double" then { verb = "double" }
+    contains "square" then { verb = "square" }
+    else { assert_eq(safe, "[agent] the model answer must name the action verb (double|square)") }
+  }
+  print(escape_html("[trace] [agent] action verb: " + verb))
+  let mut result = 0.0
+  if verb == "double" {
+    result = math_api.double(n)
+  }
+  if verb == "square" {
+    result = math_api.square(n)
+  }
+  let answer = verb + "(" + to_string(n) + ") = " + to_string(result)
+  print(escape_html("[trace] [agent] tool call: math_api." + answer))
+
+  // 5. model call 2/2 — the report call: the cycle answer goes back
+  // through the model (no HTML metacharacters — the trace stays byte-stable).
+  print("[trace] [agent] model call 2/2: call_llm(report, ...)")
+  let report = call_llm("report", answer)
+  print(escape_html("[trace] [agent] report answered: " + report))
+  return answer
+}
+
+pattern Agent(seed: String) -> String {
+  let a = cycle("double", 21.0)
+  let b = cycle("square", 21.0)
+  let final = "agent final: " + a + "; " + b
+  print(escape_html("[trace] [agent] final answer: " + final))
+  return final
+}
+
+flow Main { input: String = "21" -> Agent -> output }
