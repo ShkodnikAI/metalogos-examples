@@ -6,7 +6,7 @@
 # CI downloads the pinned release asset and verifies its SHA256 before any
 # e2e leg runs; the release BUILD-INFO.txt names the same source commit.
 CORE_REPO=ShkodnikAI/Metalogos-
-CORE_TAG=v0.30.1
-CORE_SHA=27877b811187bd9c064545e97a35fcd8e12881c2
+CORE_TAG=v0.32.0
+CORE_SHA=08482d156808de78b58a73b131cae8566c701488
 CORE_ASSET=mlog-linux-x86_64
-CORE_ASSET_SHA256=22f64215348738776066bf3d1dd0b3795fa4f27607d7f99abddcf58c6e015bc3
+CORE_ASSET_SHA256=dd8164b747aa99cb953d3f7a29e084ba38d432df376aa2f05cfd2187e2bc59a2
